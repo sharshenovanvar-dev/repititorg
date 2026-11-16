@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>БиоГид — Персональный репетитор по биологии</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 50%, #f8fafc 100%);
+        }
+        .chat-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 9999px;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.08); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+        .speaking-indicator {
+            animation: pulse-ring 1.5s infinite ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-appear {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800 antialiased">
+
+    <!-- Верхняя панель репетитора -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-20 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md">
+                    <i data-lucide="microscope" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base sm:text-lg text-slate-900 leading-tight flex items-center gap-2">
+                        БиоГид
+                        <span class="text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">5–11 класс</span>
+                    </h1>
+                    <p class="text-xs text-slate-500">Персональный голосовой репетитор по биологии</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="flex items-center bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 py-1.5">
+                    <i data-lucide="graduation-cap" class="w-4 h-4 text-emerald-600 mr-1.5 hidden sm:inline"></i>
+                    <select id="grade-select" class="bg-transparent text-xs sm:text-sm font-semibold text-emerald-800 focus:outline-none cursor-pointer">
+                        <option value="auto">Выбери класс</option>
+                        <option value="5">5 класс (Введение в биологию)</option>
+                        <option value="6">6 класс (Ботаника)</option>
+                        <option value="7">7 класс (Зоология)</option>
+                        <option value="8">8 класс (Анатомия человека)</option>
+                        <option value="9">9 класс (Общая биология / ОГЭ)</option>
+                        <option value="10">10 класс (Клетка и генетика)</option>
+                        <option value="11">11 класс (Эволюция и ЕГЭ)</option>
+                    </select>
+                </div>
+
+                <button id="toggle-tts-btn" title="Автоматическая озвучка ответов" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all text-xs sm:text-sm font-medium bg-emerald-600 text-white border-emerald-600 shadow-sm hover:bg-emerald-700">
+                    <i data-lucide="volume-2" id="tts-icon" class="w-4 h-4"></i>
+                    <span class="hidden md:inline" id="tts-label">Голос вкл</span>
+                </button>
+
+                <button id="reset-btn" title="Начать новый урок" class="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основное окно репетитора -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-5 flex flex-col gap-3 overflow-hidden">
+        
+        <!-- Виртуальный микроскоп и выбор бактерий/микробов -->
+        <div id="microscope-lab" class="bg-gradient-to-br from-slate-900 to-emerald-950 rounded-2xl p-4 text-white shadow-xl border border-emerald-500/30 flex flex-col md:flex-row gap-4 items-center">
+            <!-- Окуляр микроскопа -->
+            <div class="relative flex flex-col items-center flex-shrink-0">
+                <div class="w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-slate-950 border-8 border-slate-700 shadow-inner flex items-center justify-center overflow-hidden relative group">
+                    <div id="microscope-lens" class="absolute inset-0 flex items-center justify-center transition-all duration-300">
+                        <canvas id="microbe-canvas" width="220" height="220" class="w-full h-full object-cover"></canvas>
+                    </div>
+                    <!-- Перекрестие окуляра -->
+                    <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40">
+                        <div class="w-full h-[1px] bg-emerald-400"></div>
+                        <div class="absolute h-full w-[1px] bg-emerald-400"></div>
+                    </div>
+                    <div class="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] text-emerald-300 font-mono tracking-wider border border-emerald-500/30">
+                        ОКУЛЯР • <span id="lens-magnification">400x</span>
+                    </div>
+                </div>
+                <!-- Регуляторы микроскопа -->
+                <div class="flex items-center gap-2 mt-2">
+                    <button onclick="changeMagnification()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-xs font-mono transition-all">
+                        🔍 <span id="mag-btn-text">1000x</span>
+                    </button>
+                    <button onclick="toggleMicroscopeLight()" id="light-btn" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg text-xs transition-all">
+                        💡 Подсветка
+                    </button>
+                </div>
+            </div>
+
+            <!-- Панель управления и выбор микробов -->
+            <div class="flex-1 flex flex-col justify-between w-full gap-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <h2 class="font-bold text-sm sm:text-base text-emerald-300 flex items-center gap-2">
+                            <i data-lucide="microscope" class="w-4 h-4 text-emerald-400"></i>
+                            Виртуальная микролаборатория
+                        </h2>
+                        <span class="text-xs text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md font-mono">Живой препарат</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Выбери микроорганизм или бактерию для предметного стекла. Рассмотри их в окуляр микроскопа и нажми кнопку рассказа, чтобы узнать все научные тайны!
+                    </p>
+                </div>
+
+                <!-- Выбор препаратов -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button onclick="selectMicrobeSlide('bacterium')" id="slide-bacterium" class="slide-card bg-slate-800/90 hover:bg-slate-700/90 border border-emerald-500/50 p-2.5 rounded-xl text-left transition-all">
+                        <div class="text-base mb-1">🦠</div>
+                        <div class="font-bold text-xs text-emerald-200">Бактерии (Палочки)</div>
+                        <div class="text-[10px] text-slate-400">Прокариоты</div>
+                    </button>
+                    <button onclick="selectMicrobeSlide('infusoria')" id="slide-infusoria" class="slide-card bg-slate-800/60 hover:bg-slate-700/90 border border-slate-700 p-2.5 rounded-xl text-left transition-all">
+                        <div class="text-base mb-1">💧</div>
+                        <div class="font-bold text-xs text-slate-200">Инфузория-туфелька</div>
+                        <div class="text-[10px] text-slate-400">Ресничные</div>
+                    </button>
+                    <button onclick="selectMicrobeSlide('amoeba')" id="slide-amoeba" class="slide-card bg-slate-800/60 hover:bg-slate-700/90 border border-slate-700 p-2.5 rounded-xl text-left transition-all">
+                        <div class="text-base mb-1">🔬</div>
+                        <div class="font-bold text-xs text-slate-200">Амёба обыкновенная</div>
+                        <div class="text-[10px] text-slate-400">Ложноножки</div>
+                    </button>
+                    <button onclick="selectMicrobeSlide('euglena')" id="slide-euglena" class="slide-card bg-slate-800/60 hover:bg-slate-700/90 border border-slate-700 p-2.5 rounded-xl text-left transition-all">
+                        <div class="text-base mb-1">🌿</div>
+                        <div class="font-bold text-xs text-slate-200">Эвглена зелёная</div>
+                        <div class="text-[10px] text-slate-400">Жгутиковые</div>
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between pt-1 border-t border-slate-800">
+                    <span id="current-microbe-name" class="text-xs text-emerald-400 font-medium">Препарат: Бактерии (Палочки)</span>
+                    <button onclick="askTutorAboutCurrentMicrobe()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-md transition-all flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5">></i>
+                        <span>Рассказать про этот микроб</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Быстрый выбор темы и класса -->
+        <div id="quick-topics" class="bg-white/90 rounded-2xl p-3.5 border border-emerald-100 shadow-sm transition-all">
+            <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600 mb-2 flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                Быстрый старт — выбери пример урока или напиши свой класс и тему:
+            </p>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="selectQuickTopic('Я в 6 классе, давай разберем фотосинтез!')" class="text-xs sm:text-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5">
+                    <span>🌱</span> 6 класс: Фотосинтез
+                </button>
+                <button onclick="selectQuickTopic('Привет! Я в 7 классе, расскажи про инфузорию-туфельку.')" class="text-xs sm:text-sm bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5">
+                    <span>🦠</span> 7 класс: Инфузория-туфелька
+                </button>
+                <button onclick="selectQuickTopic('Я в 8 классе, объясни строение сердца и круги кровообращения.')" class="text-xs sm:text-sm bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5">
+                    <span>🫀</span> 8 класс: Строение сердца
+                </button>
+                <button onclick="selectQuickTopic('Готовлюсь к ЕГЭ в 10 классе, объясни митоз и мейоз.')" class="text-xs sm:text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5">
+                    <span>🧬</span> 10–11 класс: Митоз и мейоз
+                </button>
+            </div>
+        </div>
+
+        <!-- Окно чата -->
+        <div id="chat-container" class="flex-1 bg-white/95 rounded-3xl border border-emerald-100 shadow-lg flex flex-col overflow-hidden min-h-[420px]">
+            
+            <div id="messages-list" class="flex-1 p-4 sm:p-6 overflow-y-auto chat-scroll space-y-4"></div>
+
+            <div id="typing-indicator" class="hidden px-5 py-2.5 bg-emerald-50/70 border-t border-emerald-100 text-xs text-emerald-700 flex items-center gap-2">
+                <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-emerald-600"></i>
+                <span id="typing-status">Репетитор готовит объяснение...</span>
+            </div>
+
+            <div class="p-3 sm:p-4 bg-slate-50 border-t border-slate-200/80">
+                <form id="chat-form" class="flex items-end gap-2">
+                    <button type="button" id="mic-btn" title="Ответить голосом" class="p-3 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-300 transition-all flex-shrink-0 shadow-sm">
+                        <i data-lucide="mic" class="w-5 h-5"></i>
+                    </button>
+
+                    <div class="flex-1 relative">
+                        <textarea id="user-input" rows="1" placeholder="Напиши свой класс, тему или ответ на вопрос..." class="w-full bg-white border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 rounded-2xl px-4 py-3 text-sm sm:text-base resize-none focus:outline-none transition-all max-h-32"></textarea>
+                    </div>
+
+                    <button type="submit" id="send-btn" class="p-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white shadow-md hover:shadow-lg transition-all flex-shrink-0 flex items-center justify-center">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </form>
+                <div class="mt-2 flex items-center justify-between text-[11px] text-slate-400 px-1">
+                    <span>Нажми Enter для отправки • Shift+Enter для новой строки</span>
+                    <button type="button" onclick="requestMiniTest()" class="text-emerald-600 hover:underline font-medium flex items-center gap-1">
+                        <i data-lucide="check-circle-2" class="w-3 h-3"></i>
+                        Попросить мини-тест
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <audio id="tts-audio-player" class="hidden"></audio>
+
+    <script>
+        // --- Логика симулятора микроскопа и микроорганизмов ---
+        const microbeCanvas = document.getElementById('microbe-canvas');
+        const microbeCtx = microbeCanvas ? microbeCanvas.getContext('2d') : null;
+        let currentSlide = 'bacterium';
+        let magnificationLevel = 400;
+        let isLightOn = true;
+        let microbesAnimId = null;
+
+        const microbePresets = {
+            bacterium: {
+                name: "Бактерии (Палочки / Бациллы)",
+                desc: "Бактерии — это древнейшие одноклеточные организмы-прокариоты, у которых нет оформленного ядра. Под микроскопом они выглядят как крошечные подвижные палочки (бациллы), запятые (вибрионы) или шарики (кокки).",
+                promptText: "Расскажи подробно про бактерии: кто такие прокариоты, какую роль они играют в природе и жизни человека, и как они устроены под микроскопом."
+            },
+            infusoria: {
+                name: "Инфузория-туфелька",
+                desc: "Инфузория-туфелька — сложное одноклеточная эукариотическое животное. Вся её клетка покрыта ресничками, с помощью которых она стремительно плавает в капле воды.",
+                promptText: "Расскажи про инфузорию-туфельку: её строение, два ядра, сократительные вакуоли и как она передвигается с помощью ресничек."
+            },
+            amoeba: {
+                name: "Амёба обыкновенная",
+                desc: "Амёба — одноклеточный организм без постоянной формы тела. Она передвигается с помощью выростов цитоплазмы — ложноножек (псевдоподий), которыми захватывает пищу.",
+                promptText: "Расскажи про амёбу обыкновенную: как она образует ложноножки, как питается фагоцитозом и где живёт."
+            },
+            euglena: {
+                name: "Эвглена зелёная",
+                desc: "Удивительный организм на границе растений и животных! У эвглены есть жгутик для плавания, зелёные хлоропласты для фотосинтеза на свету и красный глазок (стигма).",
+                promptText: "Расскажи про эвглену зелёную: как она совмещает автотрофное питание (на свету) и гетеротрофное в темноте, и зачем ей красный глазок."
+            }
+        };
+
+        let activeMicrobes = [];
+
+        function initMicroscopeSimulation() {
+            if (!microbeCtx) return;
+            activeMicrobes = [];
+            const count = currentSlide === 'bacterium' ? 35 : 12;
+            for (let i = 0; i < count; i++) {
+                activeMicrobes.push({
+                    x: Math.random() * microbeCanvas.width,
+                    y: Math.random() * microbeCanvas.height,
+                    vx: (Math.random() - 0.5) * (currentSlide === 'bacterium' ? 1.8 : 0.9),
+                    vy: (Math.random() - 0.5) * (currentSlide === 'bacterium' ? 1.8 : 0.9),
+                    angle: Math.random() * Math.PI * 2,
+                    size: currentSlide === 'bacterium' ? 8 : (currentSlide === 'infusoria' ? 24 : 18)
+                });
+            }
+        }
+
+        function drawMicroscopeView() {
+            if (!microbeCtx) return;
+            microbeCtx.clearRect(0, 0, microbeCanvas.width, microbeCanvas.height);
+
+            // Ффон капли воды под микроскопом
+            const bgGradient = microbeCtx.createRadialGradient(110, 110, 10, 110, 110, 130);
+            if (isLightOn) {
+                bgGradient.addColorStop(0, '#064e3b');
+                bgGradient.addColorStop(1, '#022c22');
+            } else {
+                bgGradient.addColorStop(0, '#022c22');
+                bgGradient.addColorStop(1, '#000000');
+            }
+            microbeCtx.fillStyle = bgGradient;
+            microbeCtx.fillRect(0, 0, microbeCanvas.width, microbeCanvas.height);
+
+            // Рисуем микроорганизмы
+            activeMicrobes.forEach(m => {
+                m.x += m.vx * (magnificationLevel / 400);
+                m.y += m.vy * (magnificationLevel / 400);
+
+                if (m.x < 10) { m.x = 10; m.vx *= -1; }
+                if (m.x > microbeCanvas.width - 10) { m.x = microbeCanvas.width - 10; m.vx *= -1; }
+                if (m.y < 10) { m.y = 10; m.vy *= -1; }
+                if (m.y > microbeCanvas.height - 10) { m.y = microbeCanvas.height - 10; m.vy *= -1; }
+
+                microbeCtx.save();
+                microbeCtx.translate(m.x, m.y);
+                if (currentSlide === 'bacterium') {
+                    microbeCtx.rotate(Math.atan2(m.vy, m.vx));
+                    microbeCtx.fillStyle = '#34d399';
+                    microbeCtx.strokeStyle = '#065f46';
+                    microbeCtx.lineWidth = 1.5;
+                    microbeCtx.beginPath(0, 0, m.size * 1.5, m.size * 0.75, 5);
+                    microbeCtx.roundRect(-m.size * 0.75, -m.size * 0.35, m.size * 1.5, m.size * 0.7, 6);
+                    microbeCtx.fill();
+                    microbeCtx.stroke();
+                } else if (currentSlide === 'infusoria') {
+                    microbeCtx.rotate(m.angle);
+                    microbeCtx.fillStyle = '#2dd4bf';
+                    microbeCtx.strokeStyle = '#0f766e';
+                    microbeCtx.lineWidth = 2;
+                    microbeCtx.beginPath();
+                    microbeCtx.ellipse(0, 0, m.size, m.size * 0.5, 0, 0, Math.PI * 2);
+                    microbeCtx.fill();
+                    microbeCtx.stroke();
+                    // ядро
+                    microbeCtx.fillStyle = '#042f2e';
+                    microbeCtx.beginPath();
+                    microbeCtx.arc(3, 0, 4, 0, Math.PI * 2);
+                    microbeCtx.fill();
+                } else if (currentSlide === 'amoeba') {
+                    microbeCtx.fillStyle = '#fde047';
+                    microbeCtx.strokeStyle = '#ca8a04';
+                    microbeCtx.lineWidth = 2;
+                    microbeCtx.beginPath();
+                    microbeCtx.arc(0, 0, m.size * (0.8 + Math.sin(Date.now() * 0.005) * 0.15), 0, Math.PI * 2);
+                    microbeCtx.fill();
+                    microbeCtx.stroke();
+                } else if (currentSlide === 'euglena') {
+                    microbeCtx.rotate(Math.atan2(m.vy, m.vx));
+                    microbeCtx.fillStyle = '#a3e635';
+                    microbeCtx.strokeStyle = '#3f6212';
+                    microbeCtx.lineWidth = 2;
+                    microbeCtx.beginPath();
+                    microbeCtx.ellipse(0, 0, m.size, m.size * 0.4, 0, 0, Math.PI * 2);
+                    microbeCtx.fill();
+                    microbeCtx.stroke();
+                    // глазок
+                    microbeCtx.fillStyle = '#ef4444';
+                    microbeCtx.fillRect(m.size * 0.5, -2, 3, 3);
+                }
+                microbeCtx.restore();
+            });
+
+            microbesAnimId = requestAnimationFrame(drawMicroscopeView);
+        }
+
+        window.selectMicrobeSlide = function(slideKey) {
+            currentSlide = slideKey;
+            document.querySelectorAll('.slide-card').forEach(card => {
+                card.className = "slide-card bg-slate-800/60 hover:bg-slate-700/90 border border-slate-700 p-2.5 rounded-xl text-left transition-all";
+            });
+            const activeCard = document.getElementById(`slide-${slideKey}`);
+            if (activeCard) {
+                activeCard.className = "slide-card bg-slate-800/90 hover:bg-slate-700/90 border border-emerald-500/50 p-2.5 rounded-xl text-left transition-all shadow-md";
+            }
+            const nameEl = document.getElementById('current-microbe-name');
+            if (nameEl && microbePresets[slideKey]) {
+                nameEl.textContent = `Препарат: ${microbePresets[slideKey].name}`;
+            }
+            initMicroscopeSimulation();
+        };
+
+        window.changeMagnification = function() {
+            if (magnificationLevel === 100) magnificationLevel = 400;
+            else if (magnificationLevel === 400) magnificationLevel = 1000;
+            else magnificationLevel = 100;
+
+            const magText = document.getElementById('lens-magnification');
+            const magBtn = document.getElementById('mag-btn-text');
+            if (magText) magText.textContent = `${magnificationLevel}x`;
+            if (magBtn) magBtn.textContent = magnificationLevel === 1000 ? '100x' : `${magnificationLevel * 2 + 200}x`;
+        };
+
+        window.toggleMicroscopeLight = function() {
+            isLightOn = !isLightOn;
+            const btn = document.getElementById('light-btn');
+            if (btn) {
+                btn.className = isLightOn 
+                    ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg text-xs transition-all"
+                    : "bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-lg text-xs transition-all";
+            }
+        };
+
+        window.askTutorAboutCurrentMicrobe = function() {
+            const preset = microbePresets[currentSlide];
+            if (preset) {
+                handleSendMessage(preset.promptText);
+            }
+        };
+
+        // --- Существующий код движка репетитора ---
+        const apiKey = "";
+        const SYSTEM_INSTRUCTION = `Ты — опытный, дружелюбный и увлеченный репетитор по биологии для школьников с 5 по 11 класс. Твоя задача — объяснять сложные темы простым и понятным языком, адаптируя подачу материала под возраст ученика.
+Основные правила работы:
+1. Знакомство и определение уровня:
+  - Адаптируй сложность объяснений под класс: 5–6 классы (яркие аналогии, минимум сложных терминов), 7–8 классы (взаимосвязь строения органов и функций, примеры из медицины), 9–11 классы (точная терминология, биохимия, экзаменационные ловушки ОГЭ/ЕГЭ).
+2. Голосовой формат (Текст для озвучки):
+  - Пиши так, как говорит живой человек, избегай нечитаемых символов и сложных формул без словесной расшифровки (вместо H2O пиши «вода» или «аш-два-о»).
+3. Визуализация:
+  - Обязательно добавляй тег [КАРТИНКА: подробное описание схемы или рисунка в стиле учебного пособия по биологии без лишнего текста] и комментируй схему в тексте.
+4. Структура урока и проверка знаний:
+  - Разбивай тему на логические блоки по 2–3 абзаца, после каждого задавай 1–2 проверочных вопроса, хвали за верный ответ или мягко подсказывай при ошибке, а в конце предлагай мини-тест из 3–5 вопросов.`;
+
+        const messagesList = document.getElementById('messages-list');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const typingStatus = document.getElementById('typing-status');
+        const gradeSelect = document.getElementById('grade-select');
+        const toggleTtsBtn = document.getElementById('toggle-tts-btn');
+        const ttsIcon = document.getElementById('tts-icon');
+        const ttsLabel = document.getElementById('tts-label');
+        const resetBtn = document.getElementById('reset-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const quickTopics = document.getElementById('quick-topics');
+        const audioPlayer = document.getElementById('tts-audio-player');
+
+        const INITIAL_GREETING = "Привет! Я твой персональный репетитор по биологии. Вместе мы разберемся в любых тайнах живой природы — от строения крошечной инфузории и бактерий до законов генетики. Выбери препарат в нашем виртуальном микроскопе выше или скажи, в каком ты классе и какую тему будем изучать!";
+
+        let chatHistory = [];
+        let isAutoTTS = true;
+        let isProcessing = false;
+        let currentlyPlayingBtn = null;
+
+        let lessonState = {
+            grade: null,
+            topicKey: null,
+            stepIndex: 0,
+            inQuiz: false,
+            quizIndex: 0,
+            quizScore: 0
+        };
+
+        const LOCAL_CURRICULUM = {
+            bacterium: {
+                title: "Бактерии — микроскопические цари природы",
+                keywords: ["бактери", "прокариот", "палочк", "бацилл", "микроб"],
+                defaultGrade: 6,
+                steps: [
+                    {
+                        text: {
+                            junior: "Представь крошечные живые кирпичики, которые настолько малы, что в одной точке на листе бумаги поместятся миллионы! Это бактерии. У них даже нет настоящего ядра — вся инструкция по жизни плавает прямо внутри клетки.\n\nПосмотри на эту схему строения бактериальной клетки: у неё есть защитная оболочка, жгутики для плавания и цитоплазма.\n\n[КАРТИНКА: Строение бактериальной клетки: жгутик, клеточная стенка, кольцевая молекула ДНК без ядра]\n\nВопрос для тебя: как называется группа организмов, у которых в отличие от растений и животных нет оформленного ядра?",
+                            middle: "Бактерии — это прокариоты, одноклеточные организмы без ядра. По форме они бывают палочковидными (бациллы), спиралевидными (спириллы) или в виде шариков (кокки).\n\nПосмотри на схему: многие бактерии образуют защитные споры при наступлении неблагоприятных условий.\n\n[КАРТИНКА: Строение бактериальной клетки: жгутик, клеточная стенка, кольцевая молекула ДНК без ядра]\n\nПроверочный вопрос: зачем бактериям нужны защитные споры?",
+                            senior: "Изучаем царство прокариот для экзамена! Бактерии имеют кольцевую молекулу ДНК — нуклеоид, рибосомы семьдесят-эсовского типа и плазмиды с дополнительными генами устойчивости к антибиотикам.\n\nПосмотри на схему: азотфиксирующие бактерии симбионты играют ключевую роль в круговороте азота в биосфере.\n\n[КАРТИНКА: Строение бактериальной клетки: нуклеоид, плазмиды, мезосомы и капсула]\n\nЭкзаменационная ловушка: есть ли у бактерий митохондрии и аппарат Гольджи?"
+                        },
+                        expectedKeywords: {
+                            junior: ["прокариот"],
+                            middle: ["неблагоприятн", "условий", "пережит", "холод", "сух"],
+                            senior: ["нет", "отсутств"]
+                        },
+                        hint: {
+                            junior: "Подсказка: это слово начинается на букву П — до ядерные организмы.",
+                            middle: "Подсказка: когда наступает засуха или холод, бактерия покрывается плотной оболочкой, чтобы переждать.",
+                            senior: "Подсказка: вспомни, что мембранные органоиды есть только у эукариот."
+                        },
+                        praise: {
+                            junior: "Отлично! Это прокариоты.",
+                            middle: "Правильно! Споры помогают пережить суровые условия.",
+                            senior: "Блестяще! У прокариот нет мембранных органоидов."
+                        }
+                    }
+                ],
+                quiz: [
+                    { q: "Как называются организмы без оформленного клеточного ядра?", options: ["Эукариоты", "Прокариоты", "Вирусы"], correct: 1 },
+                    { q: "Какую форму имеют бактерии-бациллы?", options: ["Шаровидную", "Палочковидную", "В виде запятой"], correct: 1 },
+                    { q: "Имеют ли бактерии кольцевую ДНК?", options: ["Да, в виде нуклеоида", "Нет, ДНК нет вообще", "ДНК находится в ядре"], correct: 0 }
+                ]
+            },
+            photosynthesis: {
+                title: "Фотосинтез — солнечная кухня растений",
+                keywords: ["фотосинтез", "растен", "лист", "хлорофилл"],
+                defaultGrade: 6,
+                steps: [
+                    {
+                        text: {
+                            junior: "Представь, что каждый зелёный лист — это крошечная солнечная кухня! Чтобы приготовить себе сахар, растению нужны солнечный свет, углекислый газ и вода из корней.\n\nПосмотри на эту схему — внутри клеток есть зелёные хлоропласты, которые превращают всё это в питательные вещества и кислород!\n\n[КАРТИНКА: Схема фотосинтеза в зелёном листе: солнечный свет, углекислый газ, вода и выделение кислорода]\n\nДавай проверим: какой газ выделяют растения на свету?",
+                            middle: "Фотосинтез — это процесс образования органических веществ на свету в хлоропластах с помощью зелёного пигмента хлорофилла.\n\nПосмотри на схему: углекислый газ поступает через устьица, а вода — из корней.\n\n[КАРТИНКА: Схема фотосинтеза в зелёном листе: солнечный свет, углекислый газ, вода и выделение кислорода]\n\nПроверочный вопрос: через какие отверстия в листе поступает углекислый газ?",
+                            senior: "Разбираем световую и темновую фазы фотосинтеза. В световой фазе на мембранах тилакоидов происходит фотолиз воды с выделением кислорода.\n\nПосмотри на схему: в темновой фазе в строме синтезируется глюкоза.\n\n[КАРТИНКА: Схема световой и темновой фаз фотосинтеза в хлоропласте]\n\nЛовушка ЕГЭ: из какого вещества образуется свободный кислород — из воды или углекислого газа?"
+                        },
+                        expectedKeywords: {
+                            junior: ["кислород"],
+                            middle: ["устьиц"],
+                            senior: ["вод", "аш-два-о", "фотолиз"]
+                        },
+                        hint: {
+                            junior: "Подсказка: этот газ необходим нам для дыхания.",
+                            middle: "Подсказка: это микроскопические щели на кожице листа.",
+                            senior: "Подсказка: вспомни реакцию фотолиза в световой фазе."
+                        },
+                        praise: {
+                            junior: "Молодец! Именно кислород выделяют растения.",
+                            middle: "Точно в цель! Через устьица идет газообмен.",
+                            senior: "Блестяще! Кислород образуется при фотолизе воды."
+                        }
+                    }
+                ],
+                quiz: [
+                    { q: "В каких органоидах растительной клетки идет фотосинтез?", options: ["В митохондриях", "В хлоропластах", "В рибосомах"], correct: 1 },
+                    { q: "Какой газ растение поглощает из воздуха?", options: ["Углекислый газ", "Азот", "Кислород"], correct: 0 },
+                    { q: "Когда идет дыхание у растений?", options: ["Только ночью", "Только днём", "Круглосуточно"], correct: 2 }
+                ]
+            },
+            infusoria: {
+                title: "Инфузория-туфелька — скоростной пловец микромира",
+                keywords: ["инфузор", "туфельк", "простейш", "одноклеточ"],
+                defaultGrade: 7,
+                steps: [
+                    {
+                        text: {
+                            junior: "Инфузория-туфелька — одноклеточная микроскопическая прелесть в форме туфельки! Вся поверхность покрыта ресничками, которые работают как вёсла.\n\nПосмотри на эту схему: у неё два ядра и сократительные вакуоли.\n\n[КАРТИНКА: Строение инфузории-туфельки: реснички, ядра, вакуоли и клеточный рот]\n\nВопрос: с помощью чего инфузория так быстро плавает?",
+                            middle: "Инфузория-туфелька имеет постоянную форму тела благодаря пелликуле. У неё два ядра: макронуклеус и микронуклеус.\n\nПосмотри на схему: сократительные вакуоли выводят избыток воды.\n\n[КАРТИНКА: Строение инфузории-туфельки: реснички, ядра, вакуоли и клеточный рот]\n\nВопрос: зачем пресноводной инфузории сократительные вакуоли?",
+                            senior: "Разбираем ядерный дуализм инфузории. Макронуклеус управляет метаболизмом, а микронуклеус отвечает за конъюгацию.\n\nПосмотри на схему:\n\n[КАРТИНКА: Строение инфузории-туфельки: реснички, макронуклеус, микронуклеус, вакуоли]\n\nВопрос: увеличивается ли число особей при конъюгации?"
+                        },
+                        expectedKeywords: {
+                            junior: ["реснич"],
+                            middle: ["вод", "выкач", "удален", "излиш", "осмо"],
+                            senior: ["нет", "не увеличив"]
+                        },
+                        hint: {
+                            junior: "Подсказка: они покрывают всё тело.",
+                            middle: "Подсказка: в пресной воде клетка без них может лопнуть.",
+                            senior: "Подсказка: при конъюгации происходит лишь обмен наследственной информацией."
+                        },
+                        praise: {
+                            junior: "Верно! Реснички помогают плавать.",
+                            middle: "Отлично! Вакуоли регулируют осмотическое давление.",
+                            senior: "Точно в цель! Число особей не меняется."
+                        }
+                    }
+                ],
+                quiz: [
+                    { q: "Сколько ядер в клетке инфузории-туфельки?", options: ["Одно", "Два (большое и малое)", "Ни одного"], correct: 1 },
+                    { q: "Как называется процесс обмена генетической информацией у инфузорий?", options: ["Фотосинтез", "Конъюгация", "Фагоцитоз"], correct: 1 },
+                    { q: "Через что удаляются непереваренные остатки?", options: ["Через порошицу", "Через вакуоль", "Через ядро"], correct: 0 }
+                ]
+            }
+        };
+
+        function createVisualBiologyDiagramSVG(description) {
+            const desc = description.toLowerCase();
+
+            if (desc.includes('бактериальной') || desc.includes('бактерий') || desc.includes('прокариот')) {
+                return `
+                <svg viewBox="0 0 640 270" class="w-full max-h-72 mx-auto bg-gradient-to-r from-slate-900 to-emerald-950 rounded-xl p-2">
+                    <rect x="140" y="80" width="300" height="110" rx="55" fill="#34d399" stroke="#059669" stroke-width="4"/>
+                    <path d="M440 135 L550 120" stroke="#a78bfa" stroke-width="4" stroke-linecap="round"/>
+                    <text x="500" y="105" text-anchor="middle" font-size="12" font-weight="700" fill="#c4b5fd">Жгутик для плавания</text>
+                    <path d="M180 120 C240 100, 320 160, 380 120" fill="none" stroke="#6366f1" stroke-width="4" stroke-dasharray="6,4"/>
+                    <text x="280" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#a5b4fc">Кольцевая молекула ДНК (Нуклеоид)</text>
+                    <text x="290" y="225" text-anchor="middle" font-size="13" font-weight="600" fill="#6ee7b7">Клеточная стенка и капсула (Прокариоты без ядра)</text>
+                </svg>`;
+            }
+
+            if (desc.includes('фотосинтез') || desc.includes('хлоропласт') || desc.includes('лист')) {
+                return `
+                <svg viewBox="0 0 640 270" class="w-full max-h-72 mx-auto bg-gradient-to-b from-sky-50 to-emerald-50 rounded-xl p-2">
+                    <circle cx="80" cy="55" r="32" fill="#facc15" stroke="#eab308" stroke-width="3"/>
+                    <text x="80" y="105" text-anchor="middle" font-size="13" font-weight="700" fill="#a16207">Солнечный свет</text>
+                    <path d="M120 70 L215 115" stroke="#eab308" stroke-width="4" stroke-dasharray="6,4"/>
+                    <path d="M210 155 C210 85, 390 75, 465 140 C390 215, 210 205, 210 155 Z" fill="#22c55e" stroke="#15803d" stroke-width="4"/>
+                    <text x="335" y="132" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">Хлоропласты</text>
+                    <text x="465" y="130" stroke="#10b981" stroke-width="4"/>
+                    <text x="555" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">Кислород</text>
+                </svg>`;
+            }
+
+            if (desc.includes('инфузор') || desc.includes('туфельк')) {
+                return `
+                <svg viewBox="0 0 640 260" class="w-full max-h-72 mx-auto bg-gradient-to-b from-teal-50 to-emerald-50 rounded-xl p-2">
+                    <path d="M130 140 C130 75, 290 60, 430 85 C515 100, 535 155, 465 185 C375 220, 130 205, 130 140 Z" fill="#ccfbf1" stroke="#0d9488" stroke-width="4" stroke-dasharray="4,5"/>
+                    <ellipse cx="320" cy="128" rx="34" ry="20" fill="#5eead4" stroke="#0f766e" stroke-width="2.5"/>
+                    <text x="320" y="232" text-anchor="middle" font-size="12" font-weight="600" fill="#0f766e">Реснички и ядра инфузории</text>
+                </svg>`;
+            }
+
+            return `
+            <svg viewBox="0 0 640 270" class="w-full max-h-72 mx-auto bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-2">
+                <rect x="130" y="30" width="380" height="210" rx="75" fill="#d1fae5" stroke="#059669" stroke-width="5"/>
+                <circle cx="310" cy="135" r="46" fill="#a78bfa" stroke="#6d28d9" stroke-width="3"/>
+                <text x="310" y="202" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">Клетка и органоиды</text>
+            </svg>`;
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcmData, sampleRate = 24000) {
+            const numChannels = 1;
+            const bitsPerSample = 16;
+            const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+            const blockAlign = numChannels * (bitsPerSample / 8);
+            const dataSize = pcmData.byteLength;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitsPerSample, true);
+            writeString(36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            const pcmBytes = new Uint8Array(pcmData.buffer);
+            new Uint8Array(buffer, 44).set(pcmBytes);
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        async function fetchWithBackoff(url, options, maxRetries = 4) {
+            let delay = 800;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return await response.json();
+                } catch (err) {
+                    if (attempt === maxRetries - 1) throw err;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        function getGradeTier(gradeVal) {
+            const g = parseInt(gradeVal, 10);
+            if (g === 5 || g === 6) return 'junior';
+            if (g === 7 || g === 8) return 'middle';
+            if (g >= 9 && g <= 11) return 'senior';
+            return 'middle';
+        }
+
+        function detectGradeFromText(text) {
+            const match = text.match(/\b(5|6|7|8|9|10|11)\s*(?:класс|кл)/i);
+            if (match) {
+                lessonState.grade = parseInt(match[1], 10);
+                gradeSelect.value = String(lessonState.grade);
+            } else if (gradeSelect.value !== 'auto') {
+                lessonState.grade = parseInt(gradeSelect.value, 10);
+            }
+        }
+
+        function detectTopicFromText(text) {
+            const lower = text.toLowerCase();
+            for (const [key, topic] of Object.entries(LOCAL_CURRICULUM)) {
+                if (topic.keywords.some(kw => lower.includes(kw))) {
+                    return key;
+                }
+            }
+            return null;
+        }
+
+        function runLocalTutorEngine(userMessage) {
+            const lower = userMessage.toLowerCase();
+            detectGradeFromText(userMessage);
+
+            if (lower.includes('мини-тест') || lower.includes('тест') || lessonState.inQuiz) {
+                const topicKey = lessonState.topicKey || 'bacterium';
+                const topic = LOCAL_CURRICULUM[topicKey] || LOCAL_CURRICULUM['bacterium'];
+
+                if (!lessonState.inQuiz) {
+                    lessonState.inQuiz = true;
+                    lessonState.quizIndex = 0;
+                    lessonState.quizScore = 0;
+                    const qObj = topic.quiz[0];
+                    return `Отлично! Начинаем мини-тест по теме «${topic.title}». Всего три вопроса.\n\n${qObj.q}\nВарианты: 1) ${qObj.options[0]}, 2) ${qObj.options[1]}, 3) ${qObj.options[2]}. Напиши цифру или вариант ответа!`;
+                } else {
+                    const prevQ = topic.quiz[lessonState.quizIndex];
+                    const correctOpt = prevQ.options[prevQ.correct].toLowerCase();
+                    const isCorrect = lower.includes(correctOpt.slice(0, 5)) ||
+                        (prevQ.correct === 0 && (lower.includes('1') || lower.includes('перв'))) ||
+                        (prevQ.correct === 1 && (lower.includes('2') || lower.includes('втор'))) ||
+                        (prevQ.correct === 2 && (lower.includes('3') || lower.includes('трет')));
+
+                    let feedback = isCorrect
+                        ? `Верно! Правильный ответ — ${prevQ.options[prevQ.correct]}.`
+                        : `Немного не так, правильный ответ — ${prevQ.options[prevQ.correct]}. Запомним!`;
+
+                    if (isCorrect) lessonState.quizScore++;
+                    lessonState.quizIndex++;
+
+                    if (lessonState.quizIndex < topic.quiz.length) {
+                        const nextQ = topic.quiz[lessonState.quizIndex];
+                        return `${feedback}\n\nВопрос номер ${lessonState.quizIndex + 1}: ${nextQ.q}\nВарианты: 1) ${nextQ.options[0]}, 2) ${nextQ.options[1]}, 3) ${nextQ.options[2]}.`;
+                    } else {
+                        lessonState.inQuiz = false;
+                        const score = lessonState.quizScore;
+                        return `${feedback}\n\nМини-тест завершен! Твой результат: ${score} из ${topic.quiz.length}. Отличная работа!`;
+                    }
+                }
+            }
+
+            const detectedTopic = detectTopicFromText(userMessage);
+            if (detectedTopic && detectedTopic !== lessonState.topicKey) {
+                lessonState.topicKey = detectedTopic;
+                lessonState.stepIndex = 0;
+                const topic = LOCAL_CURRICULUM[detectedTopic];
+                if (!lessonState.grade) {
+                    lessonState.grade = topic.defaultGrade;
+                    gradeSelect.value = String(topic.defaultGrade);
+                }
+                const tier = getGradeTier(lessonState.grade);
+                return `Отлично, смотрим на тему «${topic.title}»!\n\n` + topic.steps[0].text[tier];
+            }
+
+            if (!lessonState.topicKey) {
+                lessonState.topicKey = 'bacterium';
+                lessonState.stepIndex = 0;
+                const topic = LOCAL_CURRICULUM['bacterium'];
+                const tier = getGradeTier(lessonState.grade || 6);
+                return `Давай разберем мир микробов и бактерий, которых мы только что рассматривали под микроскопом!\n\n` + topic.steps[0].text[tier];
+            }
+
+            const currentTopic = LOCAL_CURRICULUM[lessonState.topicKey];
+            const tier = getGradeTier(lessonState.grade || currentTopic.defaultGrade);
+            const currentStep = currentTopic.steps[lessonState.stepIndex];
+
+            if (currentStep) {
+                const keywords = currentStep.expectedKeywords[tier];
+                const isAnswerRight = keywords.some(kw => lower.includes(kw));
+
+                if (isAnswerRight) {
+                    const praiseText = currentStep.praise[tier];
+                    lessonState.stepIndex++;
+
+                    if (lessonState.stepIndex < currentTopic.steps.length) {
+                        return `${praiseText}\n\n` + currentTopic.steps[lessonState.stepIndex].text[tier];
+                    } else {
+                        return `${praiseText}\n\nМы полностью разобрали эту тему! Напиши «тест», чтобы пройти проверочные вопросы.`;
+                    }
+                } else {
+                    return `Почти получилось! ${currentStep.hint[tier]} Попробуй еще раз.`;
+                }
+            }
+
+            return "Хочешь пройти мини-тест для закрепления? Напиши «тест»!";
+        }
+
+        async function callGeminiTutor(userMessage) {
+            detectGradeFromText(userMessage);
+            if (!apiKey) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+                const localReply = runLocalTutorEngine(userMessage);
+                chatHistory.push({ role: 'user', parts: [{ text: userMessage }] });
+                chatHistory.push({ role: 'model', parts: [{ text: localReply }] });
+                return localReply;
+            }
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [...chatHistory, { role: 'user', parts: [{ text: userMessage }] }],
+                    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+                    generationConfig: { temperature: 0.7 }
+                };
+                const data = await fetchWithBackoff(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!replyText) throw new Error("Empty reply");
+                chatHistory.push({ role: 'user', parts: [{ text: userMessage }] });
+                chatHistory.push({ role: 'model', parts: [{ text: replyText }] });
+                return replyText;
+            } catch (e) {
+                const localReply = runLocalTutorEngine(userMessage);
+                chatHistory.push({ role: 'model', parts: [{ text: userMessage }] });
+                chatHistory.push({ role: 'model', parts: [{ text: localReply }] });
+                return localReply;
+            }
+        }
+
+        async function generateBiologyIllustration(description, imgContainerId) {
+            const container = document.getElementById(imgContainerId);
+            if (!container) return;
+            const svgMarkup = createVisualBiologyDiagramSVG(description);
+            container.innerHTML = `
+                <div class="relative group overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+                    <div class="p-2 bg-slate-900">${svgMarkup}</div>
+                    <div class="bg-emerald-50/90 px-3 py-2 border-t border-emerald-100 flex items-center justify-between text-xs text-emerald-800">
+                        <span class="flex items-center gap-1.5 font-medium">
+                            <i data-lucide="image" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            Микробиологическая схема: ${escapeHtml(description.slice(0, 70))}...
+                        </span>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        async function speakText(rawText, btnElement = null) {
+            const cleanText = rawText.replace(/\[КАРТИНКА:[^\]]+\]/gi, '').replace(/[*#_`~]/g, '').trim();
+            if (!cleanText) return;
+            stopAudio();
+
+            if (!apiKey) {
+                fallbackBrowserTTS(cleanText, btnElement);
+                return;
+            }
+
+            if (btnElement) {
+                currentlyPlayingBtn = btnElement;
+                btnElement.classList.add('speaking-indicator', 'bg-emerald-100', 'text-emerald-700');
+                btnElement.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> <span>Говорю...</span>`;
+                lucide.createIcons();
+            }
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: `Прочитай дружелюбно, как увлеченный репетитор по биологии: ${cleanText}` }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
+                    },
+                    model: "gemini-2.5-flash-preview-tts"
+                };
+                const result = await fetchWithBackoff(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const audioData = result?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                const mimeType = result?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType;
+                if (audioData && mimeType) {
+                    const pcmBuffer = base64ToArrayBuffer(audioData);
+                    const wavBlob = pcmToWav(new Int16Array(pcmBuffer), 24000);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    audioPlayer.src = audioUrl;
+                    if (btnElement) {
+                        btnElement.innerHTML = `<i data-lucide="square" class="w-3.5 h-3.5"></i> <span>Стоп</span>`;
+                        lucide.createIcons();
+                    }
+                    audioPlayer.onended = () => { resetSpeakButton(btnElement); URL.revokeObjectURL(audioUrl); };
+                    await audioPlayer.play();
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                resetSpeakButton(btnElement);
+                fallbackBrowserTTS(cleanText, btnElement);
+            }
+        }
+
+        function fallbackBrowserTTS(text, btnElement) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ru-RU';
+                if (btnElement) {
+                    currentlyPlayingBtn = btnElement;
+                    btnElement.classList.add('speaking-indicator', 'bg-emerald-100', 'text-emerald-700');
+                    btnElement.innerHTML = `<i data-lucide="square" class="w-3.5 h-3.5"></i> <span>Стоп</span>`;
+                    lucide.createIcons();
+                }
+                utterance.onend = () => resetSpeakButton(btnElement);
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function stopAudio() {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            if (currentlyPlayingBtn) { resetSpeakButton(currentlyPlayingBtn); currentlyPlayingBtn = null; }
+        }
+
+        function resetSpeakButton(btn) {
+            if (!btn) return;
+            btn.classList.remove('speaking-indicator', 'bg-emerald-100', 'text-emerald-700');
+            btn.innerHTML = `<i data-lucide="volume-2" class="w-3.5 h-3.5"></i> <span>Озвучить</span>`;
+            lucide.createIcons();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function scrollToBottom() {
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+
+        function appendTutorMessage(rawText, shouldAutoSpeak = true) {
+            const msgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+            const imageRequests = [];
+            const regex = /\[КАРТИНКА:\s*([^\]]+)\]/gi;
+            let lastIndex = 0;
+            let match;
+            let contentHtml = '';
+
+            while ((match = regex.exec(rawText)) !== null) {
+                const textBefore = rawText.slice(lastIndex, match.index).trim();
+                if (textBefore) contentHtml += formatTextParagraphs(textBefore);
+
+                const imgDescription = match[1].trim();
+                const imgContainerId = `${msgId}-img-${imageRequests.length}`;
+                imageRequests.push({ description: imgDescription, containerId: imgContainerId });
+
+                contentHtml += `
+                    <div id="${imgContainerId}" class="my-3">
+                        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 flex items-center gap-3 text-xs text-emerald-700">
+                            <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-emerald-600 flex-shrink-0"></i>
+                            <div><p class="font-semibold">Готовлю микробиологическую схему...</p></div>
+                        </div>
+                    </div>
+                `;
+                lastIndex = regex.lastIndex;
+            }
+
+            const remainingText = rawText.slice(lastIndex).trim();
+            if (remainingText) contentHtml += formatTextParagraphs(remainingText);
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex items-start gap-3 message-appear';
+            wrapper.innerHTML = `
+                <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm mt-0.5">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                </div>
+                <div class="flex-1 max-w-[88%] sm:max-w-[82%]">
+                    <div class="bg-emerald-50/70 border border-emerald-100 rounded-2xl rounded-tl-sm px-4 py-3.5 text-slate-800 text-sm sm:text-base leading-relaxed shadow-sm space-y-2.5">
+                        ${contentHtml}
+                    </div>
+                    <div class="mt-1.5 flex items-center gap-2 pl-1">
+                        <button id="${msgId}-speak-btn" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-200">
+                            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                            <span>Озвучить</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            messagesList.appendChild(wrapper);
+            lucide.createIcons();
+            scrollToBottom();
+
+            const speakBtn = document.getElementById(`${msgId}-speak-btn`);
+            speakBtn.addEventListener('click', () => {
+                if (speakBtn.classList.contains('speaking-indicator')) stopAudio();
+                else speakText(rawText, speakBtn);
+            });
+
+            imageRequests.forEach(req => generateBiologyIllustration(req.description, req.containerId));
+            if (shouldAutoSpeak && isAutoTTS) speakText(rawText, speakBtn);
+        }
+
+        function formatTextParagraphs(text) {
+            return text.split(/\n+/).filter(p => p.trim().length > 0).map(p => `<p>${escapeHtml(p.trim())}</p>`).join('');
+        }
+
+        function appendUserMessage(text) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex items-start justify-end gap-3 message-appear';
+            wrapper.innerHTML = `
+                <div class="max-w-[85%] sm:max-w-[75%] bg-emerald-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm sm:text-base leading-relaxed shadow-sm">
+                    ${formatTextParagraphs(text)}
+                </div>
+                <div class="w-9 h-9 rounded-2xl bg-slate-200 flex items-center justify-center text-slate-600 flex-shrink-0 mt-0.5">
+                    <i data-lucide="user" class="w-5 h-5"></i>
+                </div>
+            `;
+            messagesList.appendChild(wrapper);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        async function handleSendMessage(text) {
+            const trimmed = text.trim();
+            if (!trimmed || isProcessing) return;
+            if (quickTopics) quickTopics.classList.add('hidden');
+
+            stopAudio();
+            appendUserMessage(trimmed);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            isProcessing = true;
+            sendBtn.disabled = true;
+            typingStatus.textContent = "Репетитор изучает препарат...";
+            typingIndicator.classList.remove('hidden');
+            scrollToBottom();
+
+            try {
+                const reply = await callGeminiTutor(trimmed);
+                typingIndicator.classList.add('hidden');
+                appendTutorMessage(reply, true);
+            } catch (error) {
+                typingIndicator.classList.add('hidden');
+                appendTutorMessage("Ошибка отправки, попробуй еще раз!", false);
+            } finally {
+                isProcessing = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        window.selectQuickTopic = function(promptText) {
+            const match = promptText.match(/\b(5|6|7|8|9|10|11)\s*класс/i);
+            if (match) {
+                gradeSelect.value = match[1];
+                lessonState.grade = parseInt(match[1], 10);
+            }
+            handleSendMessage(promptText);
+        };
+
+        window.requestMiniTest = function() {
+            handleSendMessage("Хочу пройти мини-тест по микроорганизмам!");
+        };
+
+        chatForm.addEventListener('submit', (e) => { e.preventDefault(); handleSendMessage(userInput.value); });
+        userInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(userInput.value); } });
+        userInput.addEventListener('input', () => { userInput.style.height = 'auto'; userInput.style.height = Math.min(userInput.scrollHeight, 128) + 'px'; });
+
+        toggleTtsBtn.addEventListener('click', () => {
+            isAutoTTS = !isAutoTTS;
+            if (isAutoTTS) {
+                toggleTtsBtn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all text-xs sm:text-sm font-medium bg-emerald-600 text-white border-emerald-600 shadow-sm hover:bg-emerald-700";
+                ttsIcon.setAttribute('data-lucide', 'volume-2'); ttsLabel.textContent = "Голос вкл";
+            } else {
+                stopAudio();
+                toggleTtsBtn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all text-xs sm:text-sm font-medium bg-white text-slate-600 border-slate-200 hover:bg-slate-50";
+                ttsIcon.setAttribute('data-lucide', 'volume-x'); ttsLabel.textContent = "Голос выкл";
+            }
+            lucide.createIcons();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            stopAudio();
+            chatHistory = [];
+            lessonState = { grade: null, topicKey: null, stepIndex: 0, inQuiz: false, quizIndex: 0, quizScore: 0 };
+            messagesList.innerHTML = '';
+            gradeSelect.value = 'auto';
+            if (quickTopics) quickTopics.classList.remove('hidden');
+            startLesson();
+        });
+
+        let recognition = null;
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ru-RU';
+            recognition.onresult = (event) => { handleSendMessage(event.results[0][0].transcript); };
+            micBtn.addEventListener('click', () => { try { recognition.start(); } catch (e) { recognition.stop(); } });
+        } else {
+            micBtn.classList.add('opacity-40', 'cursor-not-allowed');
+        }
+
+        function startLesson() {
+            chatHistory.push({ role: 'model', parts: [{ text: INITIAL_GREETING }] });
+            appendTutorMessage(INITIAL_GREETING, false);
+            initMicroscopeSimulation();
+            drawMicroscopeView();
+        }
+
+        window.onload = () => {
+            lucide.createIcons();
+            startLesson();
+        };
+    </script>
+</body>
+</html>
